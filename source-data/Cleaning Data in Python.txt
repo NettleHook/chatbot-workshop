@@ -1,0 +1,174 @@
+Cleaning Data in Python
+
+Data type constraints
+-need to diagnose different problems in data, and how they can affect workflow
+-need to understand side effects of not treating the data correctly
+
+Workflow:
+access data -> explore and process data -> extract insights -> report insights
+need to clean data bc garbage in garbage out
+
+data types:
+text data(str)
+integers(int)
+decimals(float)
+binary(bool)
+dates(datetime)
+categories(category)
+
+1. need to make sure data has the right datatypes
+sometimes strings need to be converted to integers or dates
+can use assert to ensure dtype is correct
+2. need to make sure data is properly set as numerical or categorical
+	-some numbers are categories/meant to represent categories, so they should be converted
+
+Data range constraints
+3. Check for data that is out of the expected range
+
+Dealing with bad data:
+	-only drop if it only affects a small proportion of the dataset
+	-set custom minimums and maximums
+	-treat as missing and impute
+	-set custom value based on average(mean, median, mode depending on context)
+
+Uniqueness constraints
+4. check for duplicate values, if we shouldn't have any
+	-duplicates = df.duplicated() returns bool array indicating duplicates
+		-need to add arguments to make effective:
+	-subset: list of columns to check
+	-keep: whether to keep 'first', 'last', or all(False) duplicate values
+	-df.drop_duplicates(inplace=True) drops duplicates (if they're complete duplicates)
+	-can use groupby and agg to remove slightly different values in duplicate rows
+
+common problems with text and category data:
+Membership Constraints
+-predefined finite set of categories
+	-values should not exist outside of these categories
+-Reasons these problems come up include data entry issues with free text vs dropdown fields, data parsing errors, and other errors
+Solutions:
+-drop data
+-remap categories
+-infer categories
+It's a good idea to keep a log of possible categories, to make comparison checks for errors much simpler to implement
+	-can use a left anti join between sample data and the category log so that we have all the rows that have inconsistent categories.
+	-Can also use inconsistent_cat = set(df['col']).difference(category_list) to get a list of categories in df that aren't in category_list
+		-can then get rows with inconsistent categories using df['col'].isin(inconsistent_cat)
+
+Types of errors(categorical var)
+I)value inconsistency
+	inconsistent fields, such as 'married' and 'Maried' and 'not clean' and 'dirty'
+	trailing or leading whitespaces
+II) Too many categories or too few
+III) Data is wrong type
+
+Dealing with I:
+	-we can use df['col'].value_counts() to get a series
+	-or df.groupby('col').count() to get a dataframe
+	-can use .upper(), .lower() to make all categories case-consistent
+	-can use .strip() to remove trailing and ending whitespace
+Dealing with II
+	Adding categories
+	group_names = list of new categories
+	df['cat_col'] = pd.qcut(df['col'], q = len(group_names), labels = group_names)
+	or
+	ranges = list of ranges ec [0,10,20]
+	group_names = list of new categories ex ['0-10', '10-20']
+	df['cat_col'] = pd.cut(df['col'], bins = ranges, labels=group_names)
+	
+	reducing categories
+	mapping = {'old_cat_0':'new_cat_0', ... 'old_cat_n':'new_cat_n'}
+	df['col'] = df['col'].replace(mapping)
+
+Cleaning Text Data:
+-need to make sure text data is consistent within the column
+-can make use of .str.replace(), str.len, to make sure right characters and right length are enforced
+	-ex using .str.replace to removes hyphens when undesired
+-.str.contain can also check for undesirable characters/substrings
+-use regular expressions to search for and enforce specific text format using replacement
+
+More Advanced data cleaning problems
+Uniformity
+-need to make sure units are consistent 
+-when gettings dates to dateime objects, can use pd.to_datetime, with argument infer_datetime_format = True to have it try to infer date from a different format, and errors = 'coerce' to have it return NA for entries where conversion failed
+
+Cross-field validation
+-cross field validation is the use of multiple fields in a dataset to sanity check data integrity
+
+Completeness
+-dealing with missing data
+	-could be due to technical or human error
+	import missingno as msno
+		-this package helps for visualizing and understanding the data that is missing
+	can use msno.matrix to visualize missing values
+	this step is important, as it can help us figure out if there's a pattern to our missing data
+	3 types of missing data:
+	-missing completely at Random
+		-no systematic relationship between missing data and other values
+		-ex// data entry errors when inputting data
+	-missing at random
+		-systematic relationship between missing data and other observed values
+		-ex/// missing ozone data for high temperatures
+	-missing not at random
+		-systematic relationship between missing data and unobserved values
+		-ex//missing temperature values for high temperatures
+
+Comparing Strings
+minimum edit distance measures how close 2 strings are
+	-allows insertion, deletion, substitution, and transposition, and aims to find minimum number of steps to turn one string into another
+	-algorithms include damerau-levenshtein (all), levenshtein (insertion, substitution, deletion), hamming(substitution), jaro(transposition), and many more
+		-choose based on your strings
+levenstein is general and comes from package thefuzz.
+	-fuzz.WRatio gives a score from 0-100 about how similar the two strings are
+	-process.extract allows comparison of a string with an array of strings, and returns a ranking of the best matched strings in the array, based off limit=int
+		-returns tuple (string, score, index in array)
+-can use string similarity to aid in reducing categories (catches many different misspellings)
+	-can use process.extract.
+	-80 is considered a high similarity score
+
+Generating pairs
+-sometimes we want to join data sources with 'fuzzy' duplicate values
+record linkage: act of linking data from different sources regarding the same entity
+-use recordlinkage package
+-want to generate pairs, ideally all possible pairs
+	-not always feasible
+	-decide on one column to use
+Steps:
+	import recordlinkage
+	#create indexing object
+	indexer=recordlinkage.Index()
+
+	#generate pairs blocked on col
+	indexer.block(col)
+	pairs = indexer.index(df1, df2)
+This creates an array containing possible pairs of indices to subset dataframes on
+
+	#Now need to find the pairs
+	#generate the pairs
+	pairs = indexer.index(df1, df2)
+	#create compare object
+	compare = recordlinkage.Compare()
+
+	#Find exact matches for pairs of col1
+	compare.exact(col1, col1, label=col1)
+
+	#Find similar matches for pairs in fuzzy column col2
+	compare.string(col2, col2, threshold = 0.8, label =col2)#uses string comparisons
+
+	#Finally, find matches
+	potential_matches = compare.compute(pairs, df1, df2)
+Output is multi-index df, where first index is the row index from df1 and the second index is a list of all row indices in df2
+	-columns are columns being compared, 0=not a match, 1 = match
+	-now we just need to filter for rows where sum of row values is higher than a certain threshold to find potential matches.
+
+Linking DataFrames
+-after generating and score pairs, we're ready to link the dataframes
+1. Isolate the potentially matching pairs that we're pretty sure of
+	-matches = potential_matches[potential_matches.sum(axis=1) >= threshold]
+2.extract on of the index columns and subset the associated df to filter for duplicates
+	-duplicate_rows = matches.index.get_level_values(int)#int = value representing index level
+	-df2_dupes = df2[df2.index.isin(duplicate_rows)]
+	#finding new rows, is the same as the line above, just with the tilde ~
+	df2_new = df2[~df2.index.isin(duplicate_rows)]
+	#link!
+	full+df = df1.append(df2_new)
+	

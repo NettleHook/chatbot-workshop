@@ -1,0 +1,127 @@
+Intro to EDA
+-need to understand data first. We do this through Exploratory Data Analysis(EDA)
+-EDA is the process of cleaning and reviewing data to derive insights such as descriptive statistics and correlation, and generate hypotheses for experiments.
+-EDA results inform the next steps for the dataset
+	next steps could be:
+		-generating hypotheses
+		-preparing data for use in a machine learning model
+		-throwing data out and gathering new data
+-Can use .head(), .info(), .value_counts(), .describe(), and histograms to get a general look at our data
+
+Data Validation
+-important early step, as we need to understand if our data ranges and types are what we expect first
+-df.dtypes can tell us data types. Sometimes we have to convert (especially DateTime objects from another data type)
+	-can change type with .astype()
+-Another type of validation we can do is df[col].isin(list), where list is a list of expected values for that column
+	-~ can be used to invert bool values, so we can filter for rows that failed the check
+-We can view numerical data with the .select_dtypes('number) function.
+
+Data Summarization
+-.groupby() groups data by certain category, then we can chain an aggregating function to find a data statistic for the numerical columns.
+	-fun agg functions are:
+		 .mean(), .min(), .max(), .var(), .std(), .sum(), .count()
+	-can use dictionaries with .agg to specify which functions to apply to which columns. The keys represent the columns, and the values are lists of functions to apply
+	-we can also create named columns by using tuples:
+		books.groupby('genre').agg(
+			mean_rating=('rating','mean'),
+			std_rating=('rating','std'),
+			median_year=('year','median')
+			)
+
+Addressing Missing Data
+-missing data affects distributions, is less representative of the population, and can result in drawing incorrect conclusions
+-can check for missing vals with .isna().sum()
+-How to deal with missing data
+	-drop, if missing data is <=5% of total values
+	-replace with a summary statistic (mean, median, mode) depending on context(this technique is imputation)
+	-can impute by subgroups as well
+		-different groups may have different average values
+-Dropping values:
+	1. find threshold: threshold = len(df)*0.05
+	2. drop_cols = df.columns[df.isna().sum()<=threshold]
+	3. df.dropna(subset=drop_cols, inplace=True)
+-to find which columns we couldn't drop cols for that still have missing values:
+	4. missing_cols = df.columns[df.isna().sum()>0]
+Then we can impute with desired summary statistic:
+	5. for col in missing_cols[:-1]:
+		df[col].fillna(df[col].chosen_sum_stat()[0])
+Imputing by sub-groups:
+	-group by a specific col, and calculate your summary statistic, turn it into a dictionary, then use it with fillna
+	5. df_dict = df.groupby('desired_col')['missing_col'].chosen_sum_stat().to_dict()
+	6.df['missing_col'] = df['missing_col'].fillna(df['desired_col'].map(df_dict))
+
+Converting and Analyzing Categorical Data
+-.select_dtypes('object') returns non-numeric data
+-.nunique() returns number of unique values
+-Can use pd.Series.str.contains() to find column entries that contain a specific substring
+	-can use pipes in the substring to find multiple different substrings
+	-seems we can use regexp rules in general, as we can also include carat in front of a substring to make sure we get only string values where the substring is at the beginning
+-We can set up a list of conditions and create a new column using it. (Can use this instead of a switch case)
+	ex// df[col] = np.select(conditions, list_of_group_values, default='Other')
+
+Working with Numeric Data
+-sometimes numbers are stored as strings, with commas for human-readability
+	-can use pd.Series.str.replace('characters to remove', 'character to replace with') to get rid of them
+	-then we can convert to a number type using .astype()
+-sometimes we want to add summary stats as a column in our data frame
+	-df['stat'] = df.groupby('group')['col'].transform(lambda x: x.statFunc())
+
+Handling Outliers:
+-mathematically defined as >75th percentile + 1.5*IQR or <25th percentile-1.5*IQR
+	-use quantile function to find the percentile
+-outliers skew mean + std, and make data not an accurate representation
+-before removing outliers:
+	-ask why these outliers exist?
+	-are these values accurate?
+
+Patterns Over Time
+-use date or time values to find patterns
+-first, need to explicitly declare date/time values as type datetime.
+	-can use parse_dates=[cols] with pd.read_csv, or pd.to_datetime(df[col]) to ensure this.
+	-pd.to_datetime can use multiple columns with date/time parts to make one col with one datetime object.
+	-after converting to datetime, can use df[col].dt.month, df[col].dt.day, df[col].dt.year to access specific parts of the datetime obj
+
+Correlation
+-describes direction of and strength of relationship between two variables
+-can be used to predict future variables
+-.corr() calculates Pearson coefficient.
+	-good at detecting linear or near-linear relationships, but not other corr types
+	-should use scatterplots as well so we can see if there's a clear non-linear correlation. between two variables
+-sns.pairplot(data=df) does a similar thing to sns.heatmap(df.corr()) in that it uses a matrix to show correlation between all columns in df, except instead of displaying corrcoeff, pairplot displays scatterplots
+	-can also do sns.pairplot(data=df, vars=[cols]) to limit which cols are compared
+
+Factor Relationships and Distributions
+-visualizing categorical variables is usually the best way to explore those variables
+	-can examine a countplot or a histplot of a numerical value, then set hue= categorical value to see how they interact
+	-kde plots make this clearer
+		-use cut keyword to tell seaborn how far past min + max curve is allowed to go
+		-can set cumulative=True to see cumulative values
+
+Considerations for Categorical Data
+-Most important consideration is that our sample is representative of the population
+-classes=labels, our data needs to properly represent classes, without bias
+-can use .value_counts to calculate frequency, value_counts(normalize=True) to represent this as a decmial percent
+-cross-tabulation is another way to examine frequency of combinations of classes:
+	-pd.crosstab(df[index_col], planes[comp_col], values = df[stat_col], aggfunc=statfunc)
+		-use values and aggfunc to apply stat function to a column, as we do the crosstab. We can compare this with the expected stat_func result to determine if our data properly represents a population
+
+Generating New Features
+-sometimes columns are of one data type when we could do more with them as another data type, so we convert
+-can also extract features of one column to make new columns that could be used for further comparison (ex extracting day and month from a date time object)
+-can also create categories based on values in another column
+-numeric data can be split into categories with pd.cut()
+	-will need to provide labels and bins
+
+Generating Hypotheses
+-fundamental task for data scientists
+-Even with everything you find in EDA, you still might not be grasping full picture or understanding full nature or correlations between variables
+How do we determine that what we are observing is true?
+	-if we collect new data at a different time period, will we observe the same results?
+-We need to use Hypothesis Testing
+	-comes before data is collected
+	1. Come up with a hypothesis or question, and specify a statistical test that we will pergorm in order to reasonably conclude whether hypothesis is true or not
+data snooping:
+	-when we have an existing dataset, but not hypotheses was formed before data was gathered
+	-we do EDA, run lots of tests, come up with questions based off data we have, 
+	-this is called data snooping/p-hacking
+	-idea is if we look at enough data and run enough tests we'll find a significant result

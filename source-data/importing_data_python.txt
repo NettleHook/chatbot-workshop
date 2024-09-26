@@ -1,0 +1,140 @@
+Introduction to Importing Data in Python
+import:
+-plain text
+-table data
+
+Reading a text file:
+filename = 'filename.txt'
+file = open(filename, mode = 'r') #r = read, w = write, x=execute?
+text = file.read() #put all text from file in text var
+file.close()
+to avoid having to close:
+
+context manager
+with open(filename, 'r') as file:
+	print(file.read())
+
+important of flat files
+flat files are basic text files containing records/table data, without structured relationships (as opposed to a relational database)
+-rows are entries, columns are variables/attributes
+-can have headers, which describe the features in the file (column names)
+	-need to know if there is a header
+-file extensions can be .csv, .txt, 
+	-delimiters do not have to be commas
+-use numpy or pandas to import.
+
+importing flat files with numpy
+-numpy arrays are standard for storing numerical data
+-numpy also has built-in functions to make it easier and more efficient for us to import
+	-loadtxt and genfromtxt are two such functions
+-loadtxt(filename, delimiter=',', skiprows=x, usecols=[int, int], dtype=) #use skiprows if some rows need to be skipped
+	-good for basic cases, tends to break down when we have mixed datatypes
+-genfromtxt works like:
+	data = np.genfromtxt(file, delimiter=',', names=True, dtype=None)
+	-use dtype=None to auto-detect mixed types
+	-names is presence of header
+-np.recfromcsv() behaves similarly, dtype defaults to None, delimiter to ','. and names to True
+
+Importing flat files using pandas
+if we want data imported as dataframe, need to use pandas
+-dataframes superior for data analysis
+
+Introduction to other filetypes
+-excel spreadsheets, matlab, sas, stata, hdf5 files
+	-hdf5 are becoming more prevalent
+-pickled files are native to python
+	-motivation: many datatypes for which it isn't obvious how to store them
+	-don't need to be human-readable, so they are serialized (converted to byte stream)
+	-use 'rb' indicate it's read-only and binary in open(file, mode)
+-df = pd.ExcelFile(file) to import excel files
+	-df.sheet_names give sheet names, then we can use df.parse(sheet_name) or df.parse(sheet_index) to get one sheet.
+	-df.parse() takes skiprows, and allows naming of columns by passing a list to names, also allows usecols
+		-all these arguments take list
+
+Importing SAS/Stata files with pandas
+-SAS: Statistical Analysis System
+	-used in business analytics and biostatistics
+	-software suite that performs advanced analytics, multivariate analyses, business intelligence, data management, predictive analytics, and is a standard for statisticians to do computational analysis.
+	- .sas7bdat and .sas7bcat are the common file extensions (use sas7bdat in dat analysis
+	importing SAS files:
+	import pandas as pd
+	from sas7bdat import SAS7BDAT
+	with SAS7BDAT(filename) as file:
+		df_sas = file.to_data_frame()
+-Stata: 'Statistics' + 'data'
+	-used in academic social sciences research
+	-extension dta
+	-just need data = pd.read_stata(filename) #no need for context manager
+
+Importing HDF5 files
+-hierarchical data format version 5
+	-standard for storing large quantities of numerical data (gigabytes or terabytes)
+	-hdf5 can scale to exabytes
+	import h5py
+	filename = '*.hdf5'
+	data = h5py.File(filename, 'r')
+	-keys() gives meta, quality and strain
+	-each is an HDF group, think of them like directories
+	-'meta' contains meta-data for file
+	-'quality' contains information about data quality
+	-'strain' contains data
+	-hierarchical nature makes it easy to explore if you don't know what's there
+	could use data['meta'].keys() to find whats in this "directory"
+		-can access these keys by index as well
+
+Importing MATLAB files
+-matlab = matrix labratory. Useful for numerical computing, due to powerful linear algebra and matrix capabilities
+-scipy.io.loadmat, scipy.io.savemat work with .mat files
+-a matlab workspace can contain many variables of different types. the .mat file is a collection of these
+	-when using scipy.io.loadmat to import .mat file, get a dictionary where the keys are the MATLAB variable names, and the values are the values of these variables
+
+Introduction to relational databases
+-relational databases are a type of database based on Relational model of data.
+-a relational database table will look a lot like a dataframe, with each row being an instance and each column being a feature.
+-relational databases have several of these tables, and they are/may be linked
+-usually columns with similar/the same data
+	-like all the merge examples
+-makes each table smaller, instead of just having one massive table
+-PostgreSQL, MySQL, and SQLite all use the SQL query language to store, create, and modify relational databases
+
+Creating a database engine in Python
+Python has a few packages to work with relational database management systems, such as sqlite3 and SQLAlchemy
+#Using SQLAlchemy with SQLite, for demonstration purposes
+create engine:
+from sqlalchemy import create_engine
+engine=create_engine('sqlite:///db.sqlite')
+Before we begin querying databases, we need to know table names
+can use engine.table_names() to get a list of the table names
+
+Querying relational databases in Python
+-SELECT * FROM Table_Name is the easiest way to select a column (or columns) from a table in a relational database (in SQL)
+In Python, the general steps we want to follow are:
+1. import packages and functions
+2. create database engine
+3. connect to the engine
+4. query the database
+5. save results to a DataFrame
+6. close the connection
+
+After using above code to create engine:
+con = engine.connect() #con is the connection object
+rs = con.execute(command) #place query. ex// command = SELECT * FROM Table
+df = pd.DataFrame(rs.fetchall()) #form dataframe from result of query
+df.columns = rs.keys() #Otherwise, dataframe won't have column name information
+con.close() #close connection
+
+An alternative method using a context manager:
+with engine.connect() as con:
+	rs = con.execute(command)
+	df = pd.DataFrame(rs.fetchmany(5))
+	df.columns = rs.keys()
+
+Querying relational databases directly with pandas
+with pd.read_sql_query, we can do 4 steps at the same time (steps 3-5 above)
+	-first argument will be the query, 2nd argument is the engine
+	-result/return argument is the dataframe
+
+Advanced querying:exploiting table relationships
+-can join tables with 'JOIN'
+	-'SELECT * FROM Table1 INNER JOIN Table2 on Table1.col = Table2.col'
+

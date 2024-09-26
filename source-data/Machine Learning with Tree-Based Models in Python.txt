@@ -1,0 +1,322 @@
+Decision-Tree for Classification:
+Classification-and-regression-tree or CART models
+Classification tree:
+	-given a labeled dataset, learns a sequence of if-else questions about individual features in order to infer the labels
+	-able to capture non-linear relationships between features and labels
+	-don't require features to be on the same scale
+Decision Tree diagrams can be used to represent the classification tree
+	-leaf nodes are the decision/label
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from skelarn.metrics import accuracy_score
+#split time
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify = y, random_state = seed)
+
+#instantiate decision tree classifier
+dt = DecisionTreeClassifier(max_depth = num_levels, random_state = seed)
+#fit to training set
+dt.fit(X_train, y_train)
+#prediction time
+y_pred = dt.predict(X_test)
+#accuracy evaluation
+accuracy_score(y_test, y_pred)
+
+classification model divides the feature-space into regions where all instances in a region are assigned to only one class/label
+	-these regions are decision-regions
+	-regions are separated by surfaces we call decision-boundaries
+	-linear models such as LogisticRegression will have a straight line for the decision boundary, while a classification tree may have rectangular areas instead
+
+Classification_Tree Learning:
+decision tree: a data-structure consisting of a hierarchy of individual units called nodes
+	-node is a point that involves either a question or a prediction
+	-root is the node at which the tree starts growing. Has no parent, and involves a question that results in 2 children nodes
+	-an internal node has one parent, a question, and two children
+	-a node with no children is called a leaf. It has one parent and no questions. It is where the prediction/result is made
+information gain:
+	nodes of a classification tree are grown recursively
+		-question of a internal node or leaf depends on the state of its predecessors
+		-at each node, a tree asks a question involving one feature f and a split-point sp (split point determines which of the two children are chosen as the next step)
+			-chooses sp by maximizing information gain
+formula for information gain: IG(f, sp) = I(parent)-(Nleft/N*I(left) + Nright/N*I(right))
+	-I(x) = impurity of x, can be measured with several criteria:
+		-gini index
+		-entropy
+	-when instantiating the Decisiton Tree Classifier, we can set the criterion argument to the criterion we want to use, ex 'gini' for gini index. gini is the default criterion anyway (slightly faster)
+	-as we recursively build the tree, an f and sp are chosen to maximize IG()
+	-if IG() = null, then it is a leaf node
+
+Decision Tree for Regression:
+-target variable is continuous
+Use Decision Tree Regressor:
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error as MSE
+#split data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify = y, random_state = seed)
+#instantiate model
+dt= DecisionTreeRegressor(max_depth=num_levels, min_samples_leaf = x, random_state=seed)#x is the minimum fraction of data you want each leaf to contain
+
+#fit
+dt.fit(X_train, y_train)
+y_pred = dt.predict(X_test)
+
+#eval RMSE
+mse_dt = MSE(y_test, y_pred)
+rmse_dt = mse_dt ** (1/2)
+print(rmse_dt)
+
+Impurity formula is measured with MSE:
+I(node) = MSE(node) = 1/Nnode* sum(y^i-y^node)^2
+where y^node = 1/Nnode*sumy^i
+
+Prediction formula:
+y^pred(leaf) = 1/Nleaf * sumy^i
+
+Generalization Error:
+With supervised learning, assume there is a function y=f(x) that maps features(x) to labels (y). We want to determine f()
+	-in reality, data generation is accompanied with randomness or noise, so we should be instead finding a model that approximates f (call the approximation f^)
+		-f^ can be logistic regression, decision tree, neural network, etc
+		-discard noise as much as possible
+		-f^ should have low predictive error on unseen datasets
+Difficulties:
+	-we can overfit f^ if we fit it to too much noise
+	-we can underfit f^ if it is not flexible enough to approximate f
+Generalization Error of a model tells how much it generalizes on unseen data
+	-can be decomposed into 3 terms: bias, variance, irreducible error (error contribution of noise)
+	generalization error of f^ = bias^2 + variance + irreducible error
+	-bias is the error term that tells you, on average, how much f^ != f
+	-variance is the error term that tells you how much f^ is inconsistent over different training sets
+		-high variance indicates overfitting
+	-model complexity sets flexibility of f^
+	-Best model complexity corresponds to the lowest generalization error
+	-as model complexity increases, variance increases and bias decreases
+	-goal is to find model complexity that achieves the lowest generalization error, so we need to find a balance between bias and variance
+		-this is the bias-variance trade-off
+
+Diagnosing Bias and Variance Problems:
+Because f is unknown, we usually only have one dataset, and noise is unpredictable, we cannot directly figure out the generalization error
+To estimate the generalization error:
+	1. split the data in training and test sets
+	2. fit f^ to the training set
+	3. evaluate the error f^ on the unseen test set
+	4. generalization error of f^ is approximately equal to the test set error of f^
+-test set should be left untouched until we're confident enough in f^ that it is used to evaluate f^'s final performance or error
+	-we can use cross-validation to obtain a reliable estimate of f^'s performance
+		-kFoldCV or hold-out-CV are good to use
+-Evaluate f^ after each fold
+	-CV error is the mean of the k errors
+Variance problems:
+	-if CV error of f^ > training set error of f^, suffer from high variance
+		-should decrease model complexity:
+			-decrease max depth, increase min samples per leaf, gather more data
+Bias Problems:
+	-if CV error of f^ is about equal to the training set error of f^, and greater than desired error, we have high bias
+		-should increase model complexity:
+			-increase max depth, decrease min samples per leaf, gather more relevant features
+
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error as MSE
+from sklearn.model_selection import cross_val_score
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3, random_state = seed)
+
+dt = DecisionTreeRegressor(max_depth = d, min_samples_leaf = %, random_state = seed)
+#CV error time
+MSE_CV= - cross_val_score(dt, X_train, y_train, cv=k, scoring='neg_mean_squared_error', n_jobs=-1)#n_jobs=-1 will cause it to exploit all CPU cores in computation 
+#result is an array of k. We should take the mean to get our CV error
+
+#fit time
+dt.fit(X_train, y_train)
+#predict on training data
+y_predict_train = dt.predict(X_train)
+#predict on testing data
+y_predict_test = dt.predict(X_test)
+#CV MSE
+cv_error = MSE_CV.mean()
+#training MSE/error
+train_MSE = MSE(y_train, y_predict_train)
+#test MSE/error
+test_MSE = MSE(y_train, y_predict_test)
+
+Ensemble Learning:
+Advantages of CARTs:
+	-simple to understand
+	-simple to interpret
+	-easy to use
+	-flexibility: ability to describe non-linear dependencies
+	-preprocessing: no need to standardize or normalize features
+Limitations of CARTs:
+	-classification: can only produce orthogonal decision boundaries
+	-sensitive to small variations in the training set
+	-high variance: unconstrained CARTs may overfit the training set
+Solution: ensemble learning, which takes advantage of the flexibility while reducing tendency to memorize noise
+	1. train different models on the same dataset
+	2. let each model make its predictions
+	3. meta-model: aggregates predictions of individual models
+	4. Final prediction: more robust and less prone to errors
+	-best results from this method are obtained when the individual models are skillful but in different ways
+Voting Classifier
+-binary classification task
+-N classifiers, make predictions P0, P1, ... PN, with P = 0 or -1
+	-meta model outputs final prediction by hard voting
+Hard Voting:
+	-just takes a vote lmao
+Steps:
+1. imports
+2. split data into train and test set
+3. instantiate individual classifiers
+4. define a list of classifiers, which contains tuples of the name of the model and the variable name (ex// ('Logisitc Regression', logreg)
+5. Use a for loop with our classifier list to loop over all our models, training them, then predicting the labels on the test set. Also good to evaluate accuracy for the individual classifiers in the loop
+6. instantiate VotingClassifier model:
+	vc = VotingClassifier(estimators=classifiers)
+7. fit to data, then predict
+	evaluate accuracy
+
+Bagging:
+also known as bootstrap aggregation
+it is another ensemble method
+in bagging, we use models with the same training algorithm, but they are trained on different subsets of the same dataset
+	-lmao this is where 'bootstrapping' in the name comes in
+1. make N bootstrap samples of training dataset
+2. use these to train N models that use the same algorithm
+3.meta model collects predictions and outputs a final prediction depending on nature of problem
+	-classification: final prediction determined by majority voting
+		-from sklearn.ensemble import BaggingClassifier
+	-regression: final prediction is average
+		-from sklearn.ensemble import BaggingRegressor
+When coding classifier:
+1. imports
+2. split data
+3. instantiate our individual classifier
+4. instantiate bagging classifier, passing individual classifier to base_estimator argument. Also have an n_estimators arg to determine how many to use
+5. fit data to bagging classifier model
+4. predict data using bagging classifier model
+	-check accuracy
+
+Out of Bag Evaluation:
+in bagging, because we use bootstrapping some instances may be sampled several times for one model, while some instances may not be sampled at all
+	-on average, for each model 63% of the training instances are sampled
+	-remaining 37% not sampled constitute what's known as out-of-bag or OOB instances
+		-these can be used to evaluate performance of the ensemble without the need for cross-validation, as they were never seen by the model
+			-this is OOB-evaluation
+	-OOB -score of bagging ensemble is average of N OOB scores of N models
+To use this, set argument oob_score to True when instantiating the BaggingClassifier
+	-oob score can be accessed with bc.oob_score_
+
+Random Forests:
+-ensemble method with a decision tree as the base estimator
+	-each estimator is trained on a different bootstrap sample (sample has same size as training set)
+	-introduces more randomization than bagging when training each of the base estimators.
+		-when each tree is trained, only d features can be sampled at each node without replacement. d < count(features)
+		-with sklearn, d defaults to sqrt(count(features))
+-same as bagging, final prediction is made by majority voting if this is a classification model, and average of all labels predicted if this is a regression model
+-in general, Random Forests have lower variance than individual trees
+#regressor code steps
+1. imports
+2. split data
+3. instantiate RandomForestRegressor
+	-don't need to provide base estimator as a parameter
+4. fit data
+5. predict data
+	-calculate error
+-predictive power of a feature or its importance can be assessed by measuring how much the tree nodes use a particular feature to reduce impurity (in sklearn
+	-once tree-based model is trained, feature importances can be accessed with. model.feature_importance_
+		-can assign to a pandas series then plot in a bar graph to visualize
+
+AdaBoost:
+-boosting is an ensemble method in which many predictors are trained, and each predictor learns from the errors of its predecessor
+	-many weak learners are combined to form a strong learner
+		-weak learner is a model doing slightly better than random guessing
+			-ex decision stump (decision tree with max-depth = 1)
+-AdaBoost stands for adaptive boosting. each predictor pays more attention to the instances wrongly predicted by the predecessor by constantly changing the weights of training instances
+	-each predictor is assigned a coefficient alpha that weighs its contribution in the ensemble's final prediction
+		-alpha is dependent on the predictor's training error
+(X,y) -> train -> predictor1 -> predict ->alpha1 ->
+(W2,X,y) -> train -> predictor2 -> predict ->alpha2 ->
+...
+(WN, X,y) -> train -> predictorN -> predict ->alphaN
+Learning rate:
+	-represented by eta (η)
+	-value between 0 and 1
+	-used to shrink alpha of a trained predictor
+	-trade-off between eta and number of estimators: smaller value of eta should be compensated by greater number of estimators.
+Prediction:
+classification:
+	-uses weighted majority voting
+	-AdaBoostClassifier
+regression:
+	-uses weighted average
+	-AdaBoostRegressor
+-individual predictors don't have to be CARTs though they usually are due to their high variance
+classifier Steps:
+1. imports
+2. split data
+3. instantiate base estimator (usually CART)
+4. instantiate AdaBoostClassifier, passing base estimator to base_estimator
+	-AdaBoostClassifier in sklearn.ensemble
+5. fit AdaBoost Classifier model
+6. predict
+	-use adb.predict_proba(X_test)[:,1] and we can then use roc_auc_score(y_test, y_pred_proba) to get ROC-AUC score
+
+Gradient Boosting:
+-popular, track record of winning machine learning competitions
+-each predictor in the ensemble corrects its predecessor's error. Unlike AdBoost, weights of the training instances are not tweaked, but instead each predictor is trained using the residual errors of its predecessor as labels
+	-remember, residual = y-y^
+gradients boosted trees use CARTs as the base estimator
+(X, y) -> train -> tree1 -> predict -> r1=t1-y^1
+(X, r1) -> train -> tree2 -> predict -> r2=r1-r^1
+...
+(X, rN-1) -> train -> treeN -> predict -> rN=rN-1-r^N-1
+shrinkage:
+	-refers to the fact that the prediction of each tree in the ensemble is shrunk after it is multiplied by a learning rate (eta)
+		-as before, there is a trade-off between eta and number of estimators
+(X, y) -> train -> tree1 -> predict -> r1=t1-y^1
+(X η r1) -> train -> tree2 -> predict -> r2=r1-r^1
+...
+(X η rN-1) -> train -> treeN -> predict -> rN=rN-1-r^N-1
+prediction:
+regression:
+	-ypred = y1+eta*r1+...+eta*rN
+	-GradientBoostingRegressor
+classification:
+	-GradientBoostingClassifier
+
+Seems to assume CART used as base estimator, so steps are pretty much the same as the other models we've looked at, but we don't need to specify base estimator when instantiating GradientBoostingRegressor/Classifier
+	-do have to specify max_depth for the CARTs
+
+Stochastic Gradient Boosting (SGB):
+-gradient boosting involves an exhaustive search procedure, with each tree in the ensemble trained to find the best split-points and features
+	-may leads to CARTs that use the same split-points and some of the same features
+-sgb aims to mitigate these effects.
+	-Each CART is trained on a random subset of the training data. Subset is sampled w/out replacement.
+	-At the level of each node, features are sampled without replacement when choosing the best split points
+	-result is greater diversity in the ensemble, and net effect is adding more variance to the ensemble of trees
+(X, y)-> (Xsample, ysample) -> train -> tree1(with sample features at each split) -> predict -> r1=t1-y^1
+(X η r1) -> train -> tree2 -> predict -> r2=r1-r^1
+...
+(X η rN-1) -> train -> treeN -> predict -> rN=rN-1-r^N-1
+Steps:
+pretty much the same except:
+-when instantiating GradientBoostingRegressor, use the subsample argument to set the percentage of instances in the sample each tree will use and the max_features to set the percentage of available features the tree will use at each split-point
+
+Tuning a CARTs hyperparameters:
+-parameters are learned from data, such as split-point of a node, split-feature of a node
+-hyperparameters are not learned from data, but set prior to training
+	-ex max_depth, miin_samples_leaf, splitting criterion
+-hyperparameter tuning
+	-we need to find a set of optimal hyperparameters for a learning algorithm that will result in an optimal model
+	-optimal models yield an optimal score, where the score measures agreement between true labels and model predictions
+		-in sklearn, default to accuracy for classification and R^2 for regression
+	-cross-validation can be used to evaluate generalization performance
+model.get_params() method returns hyperparameters
+Remember: when using GridSearchCV, after fitting grid_model.best_params returns best hyperparameters, and grid_model.best_score_ returns the best score, and grid_model.best_estimator_ returns the best model
+
+Tuning a Random Forest (RF)'s Hyperparameters:
+-in addition to hyperparameters of the CARTs, we also have the hyperparameters of the ensemble model itself, such as the number of estimators and wether or not to use bootstrapping
+-hyperparameter tuning is computationally expensive. Sometimes it'll only lead to marginal improvements in performance, so we need to weigh the impact of tuning on the pipeline of data analysis as a whole before pursuing
+-again, random forest hyperparameters can be accessed with the .get_params() method
+-to use GridSearchCV, set estimator=random_forest_model
+
+	
+

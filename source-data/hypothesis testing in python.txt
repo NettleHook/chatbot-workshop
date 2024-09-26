@@ -1,0 +1,220 @@
+Hypothesis tests and z-scores 
+A/B testing has roots in hypothesis testing
+	-have a control and treatment group
+-we already know how to get sample statistics from previous lesson, but here's how to find out if the difference between the sample stat and population stat is meaningfully different
+	1. generate bootstrap distrubution of sample stat
+		-this will give us a bell curve/normal distribution of the stat, ideally the population stat is close to the center
+	2. Standardize the value: (value-pop_stat)/standard_dev
+		-this is a z-score
+		-when hypothesis testing, we use the hypothesized param value in place of the pop_stat, as we don't have that, and std_error in place of standard dev
+
+p-values
+two possible true states: hypothesis is true or it is not
+hypothesis is a statement about an unknown population parameter
+hypothesis test is a test of two competing hypothesis
+-null hypothesis (H0) is the existing idea
+-alternative hypothesis (HA) is the new 'challenger' idea of the researcher
+
+Either HA or H0 is true. We begin by assuming H0
+-test ends in either 'reject H0' or 'fail to reject H0'
+-significance level is the 'beyond a reasonable doubt'
+
+one-tailed and two-tailed tests
+tails are the ends of the pdf (probability distribution function)
+hypothesis tests determine whether sample stats lie in the tails of the null distribution (distribution if the null hypotheses (H0) was true)
+three types of tests:
+	-if we are checking that the alternative is different from the null, we do a two-tailed test
+	-if we are checking that the alternative is greater than the null, we do a right-tailed test
+	-if we are checking that the alternative is less than the null, we do a left-tailed test
+
+p-values are the probability of obtaining a result assuming H0 is true
+	-eg they'll represent an area under part of the pdf curve
+	-large p-values mean large support for H0, and the stat is likely to not be in the tail of the null distribution
+	-small p-values means a result in the tail is likely
+calculating p-values:
+	1. calculate z-score
+	2. pass to norm.cdf so we can calculate area under curve:
+		from scipy.stats import norm
+		#left-tailed test:
+		norm.cdf(z_score, loc=0, scale=1)
+		#right-tailed test:
+		1-norm.cdf(z_score, loc=0, scale=1)
+		#two-tailed test:
+		norm.cdf(-z_score) + 1-norm.cdf(z_score) = 2*(1-norm.cdf(z-score))
+
+statistical significance
+significance levels determine the cutoff between large and small p-values
+	-represented by alpha
+	common choices for alpha: 0.05, 0.01, 0.1, 0.2
+		-depends on dataset
+if p<= alpha, reject H0, else fail to reject H0
+-settings significance level should be done first, before calculating z-score
+
+confidence intervals:
+	-we generally choose 1-alpha for the confidence level, as this gives a sense of potential values for the population parameter
+
+-hypothesis testing also makes use of confusion matricies, as it has the same error types
+	-in hypothesis testing, these are sometimes known as type I(false positive) and type II(false negative)
+
+performing t-tests
+Sometimes we compare across groups in a variable. In this case, we'll have a categorical variable and a numerical variable
+Calculating groupwise stats:
+1. start with sample
+2. group by categorical variable
+3. compute on numeric variable
+ex//df.groupby('cat_col')['num_col'].mean()
+
+test statistics:
+we can estimate population mean with sample mean
+x(bar) is used to denote sample mean
+z-score is also a test statistic
+mu represents unknown population mean
+
+standard error without using bootstrapping (approximation):
+sqrt( std(g1)^2/count(g1) + std(g2)^2/count(g2)
+
+so basically:
+t = ((xbar(g1)-xbar(g2))- (mu(g1)-mu(g2)))/SE(xbar(g1)-xbar(g2))
+
+***t-score is like z-score, but you use it when testing for differences between means
+
+calculating p-values from t-statistics
+t-statistics follow a t-distribution
+-have parameter called degrees of freedom
+-look like normal distributions with chunkier tails
+	-starts to look closer to the normal distribution as degrees of freedom increase
+	-normal distribution is a t-distribution with infinite df
+degrees of freedom: maximum number of logically independent values in the data sample
+z-statistic: needed when using one sample statistic to estimate a population parameter
+t-statistic: needed when using multiple sample statistics to estimate a population parameter
+
+to calculate the p-values, use t-distribution cdf function instead
+	from scipy.stats import t
+	#left-tailed test:
+	t.cdf(t_stat, df=degrees_of_freedom)
+	#right-tailed test:
+	1-t.cdf(t_stat, df=degrees_of_freedom)
+
+t-statistics are used when using a sample standard deviation to estimate the standard error (as opposed to bootstrapping. The t-distribution is needed to get the p-value to correct for the approximation
+
+paired t-tests
+basically, we have our multiple groups, but because they are paired (in this example, percentage of republican votes are paired by 2008 and 2012, as we assume the demographic information in the county is the driving force behind the voting patterns. Since the demographic won't change much in the four years, we pair these), we can instead compare the combination of these statistics
+	-in the examples in the video, we used difference
+	-now we can just proceed with one variable, which represents the difference of the two groups
+Hypothesis changes from:
+H0: mu1-mu2 = 0
+HA: mu1-mu2<0
+to:
+H0 muDiff = 0
+HA: muDiff <0
+
+t-score is calculated now with:
+(xbarDiff-muDiff)/(sqrt(sDiff^2/nDiff))
+
+We can use the pingouin package to do a lot of these methods for hypothesis testing, and the outputs can be friendlier than the methods from scipy.stats.
+	-pingouin.ttest(x=sample_df['diff'],
+			y= pop_diff,
+			alternative = 'two-sided|less|greater|') will calculate the sample test
+	for paired tests can also do:
+	pingouin.ttest(x=sample_df[col1],
+			y=sample_df[col2],
+			paired=True,
+			alternative = 'two-sided|less|greater|')
+
+ANOVA tests:
+-test for differences between groups
+1. set significance level (alpha=0.2?)
+2. pingouin.anova(data=df, dv='dependent_var', between='group_col')
+p-values less than alpha tells us that at least two categories are significantly different
+3. We now have to run paired test on all possible pair combinations of groups to find which are significantly different
+	-pingouin.pairwise_tests(data=df, dv='dependent_var', between='group_col', padjust='none') does this for us
+		-as we do more tests + increase groups, it's more likely we'll get a false positive. We use padjust to account for that, which will adjust p-values to reduce chances of a false positive
+		-commonly use bonferroni correction: padjust=bonf
+
+one-sample proportion tests
+unknown population parameter that is a proportion (population proportion) is denoted with p
+p^ is the sample proportion(sample stat)
+p0 is the hypothesized population proportion
+z = (p^-mean(p^))/SE(p^) = (p^-p)/SE(p^)
+when we assume H0, p=p0
+additionally, SE(p^) is now sqrt((p0*(1-p0))/n)
+
+two-sample proportion tests
+p^ is now a weighted mean, meaning the formula is:
+(ng1*p^g1 +...+ngn*p^gn)/ng1+...+ngn
+Can simplify two-sample proportion tests by using proportions_ztest, which takes an array representing membership of group1 split by group 2, and an array of rows across group2
+from statsmodels.stats.proportion import proportions_ztest
+z_score, p_value = proportions_ztest(count=n_g1, nobs=n_rows, alternative='')
+
+Chi-square test of independence
+-extend proportion tests to more than two groups.
+
+-statistical independence: proportion of successes in the response variable is the same across all categories of the explanatory variable
+
+pingouin.chi2_independence(data=df, x=g1, y=g2m, correction=True/False)
+	-correction arg specifies whether or not to apply Yates' continuity correction, which is a fudge factor for when the sample size is very small and degrees of freedom is 1
+	-returns three dataframes:
+		-expected counts
+		-observed counts
+		-statistics related to the test
+	-chi2 = (z-score)^2
+-chi^2 tests are used to detect significant differences across 2+ groups to determine whether or not the groups are statistically independent
+-chi^2 tests
+
+chi-square goodness of fit tests:
+-variant of chi^2 test can compare a single categorical variable to a hypothesized distribution
+1.hypothesize proportion distribution among cat col
+2.use chisquare method from scipy.stats to do goodness of fit test
+	-chisquare(f_obs=actual_df[count], f_exp=hypothesized_df[count])
+
+Assumptions in hypothesis testing
+1. randomness
+	-every hypothesis test assumes that each sample is randomly sourced from its population. This is needed to ensure it's representative of the population.
+		-as part of this, we need to know where our data comes from
+2.Independence of observations
+	-assume that each observation is independent
+	-some special cases like t-tests are allowed, but we need to understand where these dependencies occur
+		-not accounting for dependencies in these cases results in increased chance of false negative and false positive errors.
+		-this needs to be discussed before data collection
+3. large sample size
+	-assume that sample is large enough for the Central Limit Theorem to apply, so that the sample distribution can be assumed to be normally distributed.
+		-smaller samples incur greater uncertainty, meaning central limit theorem does not apply
+		-without central limit theorem, calculations on the sample and any conclusions drawn from them could be nonsense
+a. large sample size with t-tests:
+	-popular heuristic is that we need at least 30 observations in our sample for sample t-tests
+	-with ANOVA, we need 30 observations from each group
+	-in paired cases we need 30 pairs of observations
+	-most important is that null distribution appears normal (this tends to occur around 30, hence the reason for this threshold)
+b. large sample size for proportion tests:
+	-sample is considered big enough if it contains at least 10 successes and 10 failures.
+	-if probability of success is close to 0 or close 1, then we need a bigger sample.
+c. large sample size for chi-square tests:
+	-only requires five successes and five failures in each group
+4. Sanity check:
+	-one more check is to calculate a bootstrap distribution and visualize with a histogram to ensure it has a bell-shaped normal curve.
+		-if this is not the case, then one of our assumptions has not been met
+
+Non-parametric tests:
+-z-test, t-test, ANOVA are all parametric, and based on the assumption that the population is normally distributed. They also require sample sizes to be large enough that the Central Limit Theorem applies
+-we can use non-parametric tests when we aren't certain assumptions are being met, or we're certain that they are not.
+	-these tests don't make normal distribution assumptions or sample size assumptions
+-can do tests that relate to ranks
+	-from scipy.stats, we can use rankdata method to order lists from smallest value to largest
+		-ranks = rankdata([df['abs_diff'])
+	-Wilcoxon-signed rank test is one of the first non-parametric procedures developed.
+		1.requires calculating absolute differences in pairs of data first, then rank them
+		2.split into two groups based on if diff is negative or positive
+		3.T_minus is the sum of ranks with negative differences
+		4.T_plus is the sum or ranks with positive differences
+		5.test statistic W is min(T-minus, T-plus)
+		-pingouin.wilcoxon(x=df['group1'], y=['group2'], alternative = 'greater|less|two-sided') will perform the W test for us
+
+non-parametric anova and unpaired t-tests:
+wilcoxon-mann-whiteney test (aka Mann Whitney U test) is a t-test performed on the ranks of the numeric input. Similar to the wilcoxon test, but works on unpaired data instead
+	1.Need data in wide format, so pivot
+		df.pivot(columns='exp_col', value = 'resp_col')
+	2.pingouin.mwu(x=df['group1'], y=df['group2'], alternative=)
+
+kruskal-wallis test extends wilcoxon-mann-whitney test to more than two groups, as ANOVA does to t-tests
+	pingouin.kruskal(data=df, dv='resp_col', between = 'exp_col')
+		-works with long data, so no need to pivot

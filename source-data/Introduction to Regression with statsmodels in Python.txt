@@ -1,0 +1,204 @@
+Introduction to Regression with statsmodels in Python
+
+Tale of two variables
+Regression models are a class of statistical models
+	-explore relationship between a response variable and explanatory variables (with hopes that you can predict response variable based on explanatory variables)
+response variable = dependent var = y var
+explanatory variables = independent vars = x vars
+linear regression: response var is numeric
+logistic regression: response var is logical
+
+simple models only have one explanatory variables
+python packages for regression
+statsmodels:
+	-optimized for insight
+scikit-learn:
+	-optimized for prediction
+
+Fitting a linear regression:
+linear regressions feature straight lines
+	-y=mx+b
+running a model (statsmodels):
+from statsmodels.formula.api import ols
+#ols = ordinary least squares, a type of regression commonly used
+model = ols('response_var ~ explanatory_var', data = df)
+#fit model
+model = model.fit()
+
+model.params returns intercept and slope of the line
+
+categorical explanatory variables:
+-use histogram to display data
+-when doing to linear regression model, use the following instead: CORRECTION: is this 'logistic' since we need the graph to start from 0 on the y-axis?
+from statsmodels.formula.api import ols
+#ols = ordinary least squares, a type of regression commonly used
+model = ols('response_var ~ cat_explanatory_var + 0', data = df).fit()
+-this specifies that all coefficients should be given relative to zero, which also means that we are fitting a linear regression without an intercept term
+	-we do this so coefficients for categorical variables make more sense
+
+Making predictions
+-need a fitted model before we can start making predictions
+1. build fitted model
+2.decide new explanatory vars values
+	-use dataframe to store
+3.call predict
+	-pass dataframe with variable values
+4.returns series of predictions, one per row of explanatory data
+-can use assign to create a new column in the dataframe from the prediction data
+
+Working with model objects
+.params returns intercept and slope in a pandas series
+'fitted values' = jargon for predictions on original dataset used to create the model
+	-accessible with .fittedvalues attribute
+	-can be used as a shortcut for taking explanatory variable column from dataset and running it through predict function
+'residuals' are measure of inaccuracy in model fit, accessible with .resid attribute
+	-one residual per row of dataset
+	-calculated by subtracting predicted response val from actual response val
+.summary() function shows extended printout of details of model
+	-lists dependent vars, type of regression, performance metrics, details of coefficients, p-values (statistical significance), diagnostic statistics 
+
+Regression to the mean
+-property of the data, not the model, but linear regression can be used to quantify the effect
+Reasons for residual:
+	-model isn't great
+	-data in real world contains randomness, so there is no perfect model that will predict with 100% accuracy
+-regression to the mean means that extreme cases don't persist over time
+	-extreme cases will start to look like average cases as time passes
+
+Transforming variables:
+-relationship between explanatory variable and response variable may not be linear.
+	-may need to transform explanatory variable, response variable, or both, to make fit linear
+
+Quantifying model fit
+-use coefficient of determination, sometimes called 'r-squared' or 'R-squared'.
+	-lower case r is for simple linear regression, upper case R for when there is more than one explanatory variable
+	-defined as proportion of the variance in the response variable that is predictable from the explanatory variable
+		-refer back to residuals, and how they can reference the part you can't explain (in models that aren't bad)
+	-score of one means perfect fit, score of zero means you are predicting as well as randomness
+		-'good' score is dependent on the dataset
+r-squared is simple, as it's just the correlation coefficient ** 2
+R-squared is also in the .summary() function, under 'R-squared'
+-can also use .rsquared attribute to get the r-squared value
+
+Residual standard error (RSE) is the measure of the typical size of residuals
+	-a measure of by how much the predictions are typically wrong
+		-keeps unit of response variable
+mean squared error (MSE) = RSE**2
+	-less commonly used
+.mse_resid attribute gives MSE. Can take square root to get RSE, as this info is not in the summary()
+
+to calculate the RSE from the data
+1.square each residual
+2.sum them
+3.take degrees of freedom (this is number of observations - model coefficients)
+4.sum of squared residuals/degrees of freedom
+5.square root
+
+root mean square error is a similar metric, the only difference between which is that you divide by number of observations instead of degrees of freedom
+
+While all three are measures of the 'error'/difference in predicted vs actual, you should generally use RSE
+
+Visualizing model fit
+-residual properties of a good fit:
+	-residuals are normally distributed
+	-mean of residuals is 0
+
+Can visualize by created a scatterplot of residuals vs fitted values. A LOWESS trend line (smooth curve that follows the data) can be used to further represent the data. The closer the LOWESS trend line is to y=0, the better a fit our model is.
+	-positive values show when fitted value is too small, negative values when it is too big
+	-use residplot(x='', y='', data=df, lowess=True)
+		-need to specify x + y labels
+can also use a q-q plot, which shows if the residuals follow a normal distribution.
+	-x-axis has theoretical quantiles (these are derived from the normal distribution), and y-axis has the sample quantiles(derived from the dataset
+	-if the relationship lays along the straight line, then values are normally distributed
+	-use qqplot(data = model.resid, fit = True, line = deg)
+		-line arg is optional
+		-import from statsmodels.api
+scale-location plot
+-square root of standardized residuals versus fitted values
+	-shows whether the size of the residuals get bigger or smaller
+	-want something with little change
+	-need to extract normalized residuals from model first:
+		model_norm_residuals = model.get_influence().resid_studentized_internal
+	-then take absolute value + square root:
+	model_norm_residuals_abs_sqrt = np.sqrt(np.abs(model_norm_residuals))
+	-now plot with regplot
+	sns.regplot(x=mdl_bream.fittedvalues, y=model_norm_residuals_abs_sqrt, ci = None, lowess = True)
+
+Outliers, leverage, and influence
+-one kind of outlier is when there is an extreme explanatory variable value
+-another type is when the point lies a long way from model predictions
+
+-leverage measures how extreme explanatory variable value is(first type of outlier)
+-influence measures how much the model would change if the observation was left out of the dataset when modeling.
+	-can find these measures through the summary frame
+summary = model.get_influence().summary_frame()
+	-leverage is described in the 'hat' matrix
+leverage = summary['hat_diag']
+	-returns array with as many values as there are observations
+-influence is based on size of residuals and leverage
+	-use Cook's distance, which is stored in summary frame as 'cooks_d'
+
+Why you need logistic regression
+-logistic regression is used when the response variable is logical,
+-result in predictions that follow a logistic curve (S-shaped)
+need logit from stasmodels.formula.api, but it's used like ols:
+model = logit('response_var ~ explanatory_var', data=df).fit()
+-Can visualize with regplot again, just need to set logistic=True:
+sns.regplot(x=explanatory_var, y=response_var, data = df, ci = None, logistic=True)
+
+Predictions and odds ratios
+-same technique with linear regression
+-prediction returns probabilities rather than a predicted value, due to the nature of the data we're working with
+-may need to use numpy.round() to get the predicted value from the probability
+-since logistic regression is often used for binary predictions, the odds ratio comes in to play
+	-the odds ratio is the probability of something happening divided by the probability that it doesn't:
+	P(X)/(1-P(X))
+-Sometimes we take the log odds ratio, as it makes it easier to visualize how changes to the explanatory variable change the probability of the response variable.
+	-just take log of odds ratio
+There are a few different scales used to represent outcomes for logistic models:
+-probability has easy to interpret values, but change is not easy to interpret. It is precise.
+-Most likely outcome has very easy to interpret values, changes in the explanatory variable and it's results on the response variable are also easy to interpret, but it's not precise.
+-odds ratio has easy to interpret values, but change is not easy to interpret. It is precise.
+-log odds ratio does not have easy to interpret values, but change is easy to interpret, and it is precise
+
+Quantifying logistic regression fit
+-for logistic regression models, we want to use confusion matrices to gauge fit
+Four outcomes: predicted false  | predicted true
+actual false  |correct		| false positive
+actual true   |false negative	|correct
+
+1. get the outcomes:
+	-actual_response = df['response_var']
+	-predicted_response = np.round(model.predict())
+2. create a dataframe from the responses:
+	outcomes = pd.DataFrame({'actual_response':actual_response,
+				'predicted_response':predicted_response})
+3.use value_counts to display actual response and predicted response counts for the corresponding values:
+	outcomes.value_counts(sort=False) should return something like:
+	actual_response   predicted_response
+	0		  0.0			a
+			  1.0			b
+	1		  0.0			c
+			  1.0			d
+where   a = actual false & predicted false (true negative
+	b = actual false & predicted true (false positive)
+	c = actual true & predicted false (false negative)
+	d = actual true & predicted true (true positive)
+4.Instead of doing all this, can use the pred_table() function on the model to get it automatically:
+	conf_matrix = model.pred_table() returns it as follows:
+	[[true negative		false positive]
+	 [false negative	true positive ]]
+5. we can import mosaic function from statsmodels.graphics.mosaicplot, which will enable us to easily plot the confusion matrix
+	-mosaic(conf_matrix)
+		-width of each column is proportional to fraction of observations in each category of actual values, and height is proportional to fraction of observations in each category of predicted values
+
+Now, we can finally use these values to calculate model fit along various measures.
+-Accuracy is the proportion of correct predictions:
+	(TN+TP)/(TN+FN+FP+TP)
+	higher accuracy is better
+-Sensitivity is the proportion of observations where actual response was true where the model also predicted they were true
+	TP/(FN+TP)
+	higher sensitivity is better
+-specificity is the proportion of true negatives to all negatives, similar to sensitivity
+	TN/(TN+FP)
+	higher specificity is better

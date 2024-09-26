@@ -1,0 +1,90 @@
+hypothesis testing 2.0
+
+When we have a hypothesis test, there is the null hypothesis and the alternative hypothesis. There are some rules for these:
+1. the two hypotheses must be mutually exclusive
+2. the alternative hypothesis cannot contain equality
+ergo, we can have:
+H0: µ=x, HA: µ≠x (two-tailed)
+H0: µ≤x, HA:µ>x (right-tailed)
+H0: µ≥x, HA: µ<x (left-tailed)
+
+Next we need to check our assumptions to determine if we're using the parametric or non-parametric version of the test
+	check for:
+		-observations are normally distributed
+		-observations are independent and identically distributed
+		-observations in each sample have the same variance (is this the same as randomly sourced?)
+	if any of these conditions fail, use a non-parametric test
+
+Next, we need to consider if data is paired and how many groups are being compared
+if paired and 2 groups:
+	-parametric: paired t-test
+	-non-parametric wicoxon signed rank test
+if paired and more than 2 groups:
+	-parametric: analysis of variance
+	-non-parametric: friedman test
+if unpaired and 2 groups:
+	-parametric: independent t-test
+	-non-parametric: mann-whitney U test
+if unpaired and more than 2 groups:
+	-parametric: analysis of variance
+	-non-parametric: kruskal wallis test
+
+Regardless of test, we will be given a p-value.
+
+When running the test, we need to consider the form of the test we're running and what that means about the tail we're checking.
+	In some cases, the test assumes a two-tailed test, when we're only checking one tail and we may have to do some algebra with the returned p-value to get the p-value we actually want
+	or we can use 'alternative' argument most of these functions have to make sure we're running the right test
+
+If the p-value is smaller than our alpha/significance level, then we reject H0.
+	->validates HA
+otherwise, we fail to reject H0
+	->does not mean H0 is valid or that HA is wrong, just means we couldn't validate HA under these conditions/with this data
+
+Types of tests:
+one sample t-test:
+	-used to test whether or not mean of a population is equal to a value
+	-H0: µ=µ0, HA: µ≠µ0(two-tailed), HA: µ<µ0(left-tailed), HA:µ>µ0 (right-tailed)
+		-µ0 is the hypothesized population mean
+	-test statistic t = (xhat - µ0)/(s/√n)
+		-xhat = sample mean, s=sample std, n = sample size
+	-with python use scipy.stats.ttest_1samp(obs:array_like, expected_mean : float or array_like, alternative: {'two-sided', 'less, 'greater'})
+		-returns t-stat, p-val, degrees_freedom
+
+two sample t-test:
+	-used to test if sample stat (mean) is the same between two groups
+	-H0: µ1=µ2, HA: µ1≠µ2(two-tailed), HA: µ1<µ2(left-tailed), HA:µ1>µ2 (right-tailed)
+	-test statistic t = (xhat1 - xhat2)/sp(√(1/n1+1/n2))
+		-xhat1, xhat2 = sample means, n1, n2 sample sizes
+		-sp = √(((n1-1)s1^2 + (n2-1)*s2^2))/(n1+n2-2))
+			-s1,s2 are the sample variances
+	-parametric test
+		-if same circumstance, but non-equal variances use Welch's t-test
+	-with python use scipy.stats.ttest_ind(group1:array_like, group2_array_like, equal_var :bool (if true, performs standard test, if false performs welch's t-test), alternative: {'two-sided', 'less, 'greater'})
+
+paired t-test:
+	-used when comparing sample stat (mean) of two samples when each observation in one sample can be paired with an observation in the other
+		-ex// measurement taken on a subject before and after a treatment
+		-ex// voter party demographics in two different election years
+	-H0: µ1=µ2, HA: µ1≠µ2(two-tailed), HA: µ1<µ2(left-tailed), HA:µ1>µ2 (right-tailed)
+	-test statistic t=Xhatdiff/(sdiff/√n)
+		-xhatdiff = sample mean of the differences between the groups
+			-sdiff = std of the differences
+	-parametric test
+	-with python use scipy.stats.ttest_rel(group1, group1, alternative)
+
+one proportion z-test:
+	-used when figuring out if proportion stats from a sample represent the population properly
+		-ex//polling people on who they intend to vote for, then checking if the proportions can properly be applied to the population
+	-H0: p=p0, HA: p≠p0(two-tailed), HA: p<p0(left-tailed), HA:p>p0 (right-tailed)
+	-z statistic z = (p-p0)/√(p0(1-p0)/n)
+	-parametric test
+	-with python use statsmodels.proportions_ztest(count = num_successes, nobs = number of trials, value = hypothesized pop proportion, alternative)
+
+two-proportion z-test:
+	-used when trying to find if there is a difference in the proportion of a 'success' between two groups
+	-H0: p1=p2, HA: p1≠p2(two-tailed), HA: p1<p2(left-tailed), HA:p1>p2 (right-tailed)
+	-test statistic z = (p1-p2)/√(p(1-p)(1/n1+1/n2))
+		-p = (p1n1+p2n2)/(n1+n2)
+	-parametric
+	-with python use statsmodels.stats.weightstats.ztest(group1, group2, value = mean under null or mean difference ( one or two samples), alternative)
+		-can also be used to do one sample z-test
